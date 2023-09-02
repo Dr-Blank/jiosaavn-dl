@@ -15,8 +15,10 @@ song_api = "https://www.jiosaavn.com/api.php?__call=webapi.get&token={}&type=son
 album_api = "https://www.jiosaavn.com/api.php?__call=webapi.get&token={}&type=album"
 playlist_api = "https://www.jiosaavn.com/api.php?__call=webapi.get&token={}&type=playlist&_format=json"
 lyrics_api = "https://www.jiosaavn.com/api.php?__call=lyrics.getLyrics&ctx=web6dot0&api_version=4&_format=json&_marker=0%3F_marker%3D0&lyrics_id="
+artist_api = "https://www.jiosaavn.com/api.php?__call=webapi.get&token={}&type=artist&_format=json"
 album_song_rx = re.compile("https://www\.jiosaavn\.com/(album|song)/.+?/(.+)")
 playlist_rx = re.compile("https://www\.jiosaavn\.com/s/playlist/.+/(.+)")
+artist_rx = re.compile("https://www\.jiosaavn\.com/artist/.+/(.+)")
 json_rx = re.compile("({.+})")
 
 logo = """
@@ -241,6 +243,24 @@ class Jiosaavn:
             )
             song_pos += 1
 
+    def processArtist(self, artist_id, out_dir="Downloads"):
+        artist_json = self.session.get(artist_api.format(artist_id)).text
+        artist_json = json.loads(json_rx.search(artist_json).group(1))
+        artist_name = artist_json["name"]
+        artist_info = f"\n\
+                            Artist info:\n\
+                            Artist name    : {artist_name}\n"
+        print(artist_info)
+
+        # process each album
+        for album in artist_json["topAlbums"]['albums']:
+            kind, id_ = album_song_rx.search(album["url"]).groups()
+            self.processAlbum(id_, output_path=out_dir)
+
+        # process album of each song
+        for song in artist_json["topSongs"]["songs"]:
+            kind, id_ = album_song_rx.search(song["album_url"]).groups()
+            self.processAlbum(id_, output_path=out_dir)
 
 if __name__ == "__main__":
     clear()
@@ -270,5 +290,8 @@ if __name__ == "__main__":
     elif "/playlist/" in url:
         playlist_id = playlist_rx.search(url).group(1)
         jiosaavn.processPlaylist(playlist_id, out_dir=out_dir)
+    elif "/artist/" in url:
+        artist_id = artist_rx.search(url).group(1)
+        jiosaavn.processArtist(artist_id, out_dir=out_dir)
     else:
         print("Please enter a valid link!")
